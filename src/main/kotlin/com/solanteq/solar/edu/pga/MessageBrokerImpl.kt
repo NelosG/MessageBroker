@@ -15,8 +15,8 @@ import java.util.concurrent.CompletableFuture
  * 5. Методы должны сразу возвращать [CompletableFuture] для ожидания выполнения операции.
  * В явном виде в потоке вызывающей стороны не должно происходить выполнение логики.
  *
- * @author <put your nickname here>
- * @since <put the latest version here>
+ * @author gpushkarev
+ * @since 1.0.0
  */
 class MessageBrokerImpl<K : Any, V : Any> : MessageBroker<K, V> {
     override fun listenAndReply(key: K, responder: (V) -> V): CompletableFuture<V> {
