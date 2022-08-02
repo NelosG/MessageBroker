@@ -30,4 +30,5 @@ class MessageBrokerImpl<K : Any, V : Any> : MessageBroker<K, V> {
 
 fun main() {
     val messageBroker = MessageBrokerImpl<String, String>()
+    val res = messageBroker.listenAndReply("Hello") { it }
 }
