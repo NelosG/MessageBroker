@@ -10,6 +10,10 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
+/**
+ * @author gpushkarev
+ * @since 5.0.0
+ */
 abstract class MessageBrokerBaseTest {
     protected lateinit var messageBroker: MessageBroker<String, String>
 

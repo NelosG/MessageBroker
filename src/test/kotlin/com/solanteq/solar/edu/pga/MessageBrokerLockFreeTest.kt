@@ -5,7 +5,7 @@ import org.junit.jupiter.api.BeforeEach
 
 /**
  * @author gpushkarev
- * @since 4.0.0
+ * @since 5.0.0
  */
 class MessageBrokerLockFreeTest : MessageBrokerBaseTest() {
 

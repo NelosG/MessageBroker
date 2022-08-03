@@ -2,26 +2,18 @@ package com.solanteq.solar.edu.pga.util
 
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * @author gpushkarev
- * @since 4.0.0
+ * @since 5.0.0
  */
 open class Queues<V : Any> {
 
     val listens: ConcurrentLinkedDeque<Listen<V>> = ConcurrentLinkedDeque()
     val sends: ConcurrentLinkedDeque<Send<V>> = ConcurrentLinkedDeque()
 
-    val lockState: AtomicReference<LockState>
-    val validState: AtomicReference<ValidState>
-
-
-    constructor() : this(LockState.FREE, ValidState.VALID)
-
-    constructor(lockState: LockState, validState: ValidState) {
-        this.lockState = AtomicReference(lockState)
-        this.validState = AtomicReference(validState)
-    }
+    val lock = ReentrantLock()
 
 
     fun isEmpty(): Boolean {

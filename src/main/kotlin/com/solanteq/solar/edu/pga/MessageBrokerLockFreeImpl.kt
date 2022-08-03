@@ -9,7 +9,7 @@ import java.util.concurrent.Executors
 
 /**
  * @author gpushkarev
- * @since 4.0.0
+ * @since 5.0.0
  */
 class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
 
@@ -35,21 +35,12 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
     }
 
     private fun synchroProcessing(key: K, addFunc: (Queues<V>) -> Unit) {
-        var queues: Queues<V>
 
-        /* Не совсем уверен не считает ли это блокирующей операцией(
-        *   Если queues кем то удалена то новая будет пустой и ее никто не будет пытаться удалить,
-        *   пока не сматчит хотя бы 1 пару
-        *
-        *   расписывать много но ждать будем не долго
-         */
-        while (true) {
-            queues = mapQueues.getOrPut(key) { Queues() }
-            addFunc(queues)
-            if (queues.validState.compareAndSet(ValidState.VALID, ValidState.VALID)) {
-                break
+            mapQueues.compute(key) {_, v ->
+                val queues = v ?: Queues()
+                addFunc(queues)
+                queues
             }
-        }
 
         executors.submit {
             processKey(key)
@@ -58,33 +49,21 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
 
     private fun processKey(key: K) {
         try {
-            var queues = mapQueues.getValue(key)
+            val queues = mapQueues.getValue(key)
 
             while (!Thread.currentThread().isInterrupted) {
-                // TRY Process, if can't than someone doing this work
-                if (queues.lockState.compareAndSet(LockState.FREE, LockState.LOCKED)) {
-                    if (!queues.validState.compareAndSet(ValidState.VALID, ValidState.VALID)) {
-                        queues = mapQueues.getValue(key)
-                        continue
-                    }
+                if (queues.lock.tryLock()) {
                     try {
                         while (!Thread.currentThread().isInterrupted) {
-                            val forProcess = queues.getForProcess() ?: return
+                            val forProcess = queues.getForProcess() ?: break
                             val listen = forProcess.first
                             val send = forProcess.second
 
                             match(listen, send)
                         }
-
-                        if (queues.isEmpty()) {
-                            if (queues.validState.compareAndSet(ValidState.VALID, ValidState.REMOVED)) {
-                                mapQueues.remove(key, queues)
-                            } else {
-                                throw IllegalStateException("Someone delete locked queues")
-                            }
-                        }
+                        mapQueues.remove(key, queues)
                     } finally {
-                        queues.lockState.compareAndSet(LockState.LOCKED, LockState.FREE)
+                        queues.lock.unlock()
                     }
                     return
                 }
