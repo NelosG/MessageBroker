@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * @author gpushkarev
- * @since 1.0.0
+ * @since 3.0.0
  */
 open class Queues<V : Any> {
 
