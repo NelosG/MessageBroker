@@ -1,6 +1,9 @@
 package com.solanteq.solar.edu.pga
 
-import com.solanteq.solar.edu.pga.util.*
+import com.solanteq.solar.edu.pga.util.Listen
+import com.solanteq.solar.edu.pga.util.Queues
+import com.solanteq.solar.edu.pga.util.Send
+import com.solanteq.solar.edu.pga.util.State
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
@@ -9,7 +12,7 @@ import java.util.concurrent.Executors
 
 /**
  * @author gpushkarev
- * @since 4.0.0
+ * @since 3.0.0
  */
 class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
 
@@ -35,20 +38,14 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
     }
 
     private fun synchroProcessing(key: K, addFunc: (Queues<V>) -> Unit) {
-        var queues: Queues<V>
+        var queues = mapQueues.getOrPut(key) { Queues(State.ACTIVE) }
 
-        /* Не совсем уверен не считает ли это блокирующей операцией(
-        *   Если queues кем то удалена то новая будет пустой и ее никто не будет пытаться удалить,
-        *   пока не сматчит хотя бы 1 пару
-        *
-        *   расписывать много но ждать будем не долго
-         */
-        while (true) {
-            queues = mapQueues.getOrPut(key) { Queues() }
-            addFunc(queues)
-            if (queues.validState.compareAndSet(ValidState.VALID, ValidState.VALID)) {
-                break
-            }
+        while (!queues.state.compareAndSet(State.ACTIVE, State.LOCKED)) { // Не совсем уверен не считает ли это блокирующей операцией(
+            queues = mapQueues.getOrPut(key) { Queues(State.ACTIVE) }
+        }
+        addFunc(queues)
+        if (!queues.state.compareAndSet(State.LOCKED, State.ACTIVE)) {
+            throw IllegalStateException("Someone unlock locked value") // Не должно кидаться
         }
 
         executors.submit {
@@ -60,35 +57,35 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
         try {
             var queues = mapQueues.getValue(key)
 
-            while (!Thread.currentThread().isInterrupted) {
-                // TRY Process, if can't than someone doing this work
-                if (queues.lockState.compareAndSet(LockState.FREE, LockState.LOCKED)) {
-                    if (!queues.validState.compareAndSet(ValidState.VALID, ValidState.VALID)) {
-                        queues = mapQueues.getValue(key)
-                        continue
+            try {
+                while (!queues.state.compareAndSet(State.ACTIVE, State.LOCKED)) {
+                    if (queues.state.compareAndSet(State.REMOVED, State.REMOVED)) {
+                        return
                     }
-                    try {
-                        while (!Thread.currentThread().isInterrupted) {
-                            val forProcess = queues.getForProcess() ?: return
-                            val listen = forProcess.first
-                            val send = forProcess.second
-
-                            match(listen, send)
-                        }
-
-                        if (queues.isEmpty()) {
-                            if (queues.validState.compareAndSet(ValidState.VALID, ValidState.REMOVED)) {
-                                mapQueues.remove(key, queues)
-                            } else {
-                                throw IllegalStateException("Someone delete locked queues")
-                            }
-                        }
-                    } finally {
-                        queues.lockState.compareAndSet(LockState.LOCKED, LockState.FREE)
-                    }
-                    return
+                    queues = mapQueues.getValue(key)
                 }
+
+                val forProcess = queues.getForProcess() ?: return
+                val listen = forProcess.first
+                val send = forProcess.second
+
+                match(listen, send)
+
+                if (queues.isEmpty()) {
+                    if (queues.state.compareAndSet(State.LOCKED, State.PREPARED_FOR_REMOVE)) {
+                        if (queues.isEmpty()) {
+                            mapQueues.remove(key, queues)
+                            queues.state.compareAndSet(State.PREPARED_FOR_REMOVE, State.REMOVED)
+                        } else {
+                            queues.state.compareAndSet(State.PREPARED_FOR_REMOVE, State.LOCKED)
+                        }
+                    }
+                }
+
+            } finally {
+                queues.state.compareAndSet(State.LOCKED, State.ACTIVE)
             }
+
 
         } catch (ignored: InterruptedException) {
             Thread.currentThread().interrupt()
@@ -96,9 +93,7 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
     }
 
     private fun match(listen: Listen<V>, send: Send<V>) {
-        executors.submit {
-            listen.future.complete(send.value)
-            send.future.complete(listen.responder(send.value))
-        }
+        listen.future.complete(send.value)
+        send.future.complete(listen.responder(send.value))
     }
 }

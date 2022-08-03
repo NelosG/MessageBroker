@@ -5,22 +5,20 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * @author gpushkarev
- * @since 4.0.0
+ * @since 3.0.0
  */
 open class Queues<V : Any> {
 
     val listens: ConcurrentLinkedDeque<Listen<V>> = ConcurrentLinkedDeque()
     val sends: ConcurrentLinkedDeque<Send<V>> = ConcurrentLinkedDeque()
 
-    val lockState: AtomicReference<LockState>
-    val validState: AtomicReference<ValidState>
+    val state: AtomicReference<State>
 
 
-    constructor() : this(LockState.FREE, ValidState.VALID)
+    constructor() : this(State.ACTIVE)
 
-    constructor(lockState: LockState, validState: ValidState) {
-        this.lockState = AtomicReference(lockState)
-        this.validState = AtomicReference(validState)
+    constructor(state: State) {
+        this.state = AtomicReference(state)
     }
 
 
