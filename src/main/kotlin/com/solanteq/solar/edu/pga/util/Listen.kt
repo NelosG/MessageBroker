@@ -4,7 +4,7 @@ import java.util.concurrent.CompletableFuture
 
 /**
  * @author gpushkarev
- * @since 3.0.0
+ * @since 4.0.0
  */
 data class Listen<V : Any>(
     val future: CompletableFuture<V>,
