@@ -14,13 +14,13 @@ import java.util.concurrent.CompletableFuture
  * @author gpushkarev
  * @since 1.0.0
  */
-class MessageBrokerTest {
+class MessageBrokerLockFreeTest {
 
-    private lateinit var messageBroker: MessageBrokerImpl<String, String>
+    private lateinit var messageBroker: MessageBrokerLockFreeImpl<String, String>
 
     @BeforeEach
     fun init() {
-        messageBroker = MessageBrokerImpl()
+        messageBroker = MessageBrokerLockFreeImpl()
     }
 
     @Test()

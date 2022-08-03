@@ -1,6 +1,9 @@
 package com.solanteq.solar.edu.pga
 
-import com.solanteq.solar.edu.pga.util.*
+import com.solanteq.solar.edu.pga.util.Listen
+import com.solanteq.solar.edu.pga.util.QueuesLocked
+import com.solanteq.solar.edu.pga.util.Send
+import com.solanteq.solar.edu.pga.util.Task
 import java.util.concurrent.*
 
 
@@ -23,7 +26,7 @@ class MessageBrokerImpl<K : Any, V : Any> : MessageBroker<K, V> {
 
     private val executors: ExecutorService
     private val controlThread: Thread
-    private val mapQueues: ConcurrentHashMap<K, Queues<V>> = ConcurrentHashMap()
+    private val mapQueues: ConcurrentHashMap<K, QueuesLocked<V>> = ConcurrentHashMap()
     private val queue: BlockingQueue<Task<K, V>> = LinkedBlockingQueue()
 
 
@@ -45,8 +48,9 @@ class MessageBrokerImpl<K : Any, V : Any> : MessageBroker<K, V> {
 
                 if (mapQueues[entry.key] == queues) {
                     while (true) {
-                        val listen = queues.getListen() ?: break
-                        val send = queues.getSend() ?: break
+                        val forProcess = queues.getForProcess() ?: break
+                        val listen = forProcess.first
+                        val send = forProcess.second
                         match(listen, send)
                     }
                     if (queues.isEmpty()) {
@@ -73,7 +77,7 @@ class MessageBrokerImpl<K : Any, V : Any> : MessageBroker<K, V> {
         val key = task.key
 
         while (true) {
-            val queues = mapQueues.getOrPut(key) { Queues() }
+            val queues = mapQueues.getOrPut(key) { QueuesLocked() }
             try {
                 // Check that queues hasn't been deleted
                 queues.lock.lock()
@@ -84,6 +88,7 @@ class MessageBrokerImpl<K : Any, V : Any> : MessageBroker<K, V> {
                             val listen = task.listen ?: throw IllegalStateException("Listen missing")
                             queues.listens.add(listen)
                         }
+
                         Task.TaskType.SEND -> {
                             val send = task.send ?: throw IllegalStateException("Send missing")
                             queues.sends.add(send)
