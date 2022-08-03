@@ -1,15 +1,14 @@
 package com.solanteq.solar.edu.pga
 
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.util.concurrent.CancellationException
 import java.util.concurrent.CompletableFuture
+
 
 /**
  * @author gpushkarev
@@ -49,26 +48,59 @@ class MessageBrokerTest {
         assertThrows<CancellationException> {
             (request.get())
         }
-        runBlocking {
-            launch {
-                messageBroker.listenAndReply(key) { value }
-            }
-            assertEquals(withContext(Dispatchers.IO) {
-                response.get()
-            }, value)
-        }
+        messageBroker.listenAndReply(key) { value }
+        assertEquals(response.get(), value)
     }
 
     @Test
     fun correctnessTest1() {
-        val count = 1_000
-        val key = "correctnessTest1"
+        correctnessTest1Impl(1, 10_000)
+    }
+
+    @Test
+    fun correctnessTest2() {
+        correctnessTest2Impl(1, 10_000)
+    }
+
+    @Test
+    fun correctnessMultiTest1() {
+        runBlocking {
+            var id = 0
+            repeat(1_000) {
+                launch {
+                    correctnessTest1Impl(id, 1_000)
+                }
+                id++
+            }
+        }
+    }
+
+    @Test
+    fun correctnessMultiTest2() {
+        runBlocking {
+            var id = 0
+            repeat(1_000) {
+                launch {
+                    correctnessTest2Impl(id, 1_000)
+                }
+                id++
+            }
+        }
+    }
+
+    @Test
+    fun multithreadingTest() {
+
+    }
+
+    private fun correctnessTest1Impl(id: Int, count: Int) {
+        val key = "correctnessTest$id"
 
         val request = ArrayList<String>(count)
-        val responce = ArrayList<String>(count)
+        val response = ArrayList<String>(count)
 
         val requestRes = ArrayList<CompletableFuture<String>>(count)
-        val responceRes = ArrayList<CompletableFuture<String>>(count)
+        val responseRes = ArrayList<CompletableFuture<String>>(count)
 
         var i = 0
         repeat(count) {
@@ -78,29 +110,27 @@ class MessageBrokerTest {
         }
         request.forEach {
             val func = { s: String -> s + 10 }
-            responce.add(func(it))
-            responceRes.add(messageBroker.listenAndReply(key, func))
+            response.add(func(it))
+            responseRes.add(messageBroker.listenAndReply(key, func))
         }
 
-        request.indices.forEach{ ind ->
-            assertEquals(request[ind], responceRes[ind].get())
+        request.indices.forEach { ind ->
+            assertEquals(request[ind], responseRes[ind].get())
         }
 
-        responce.indices.forEach{ ind ->
-            assertEquals(responce[ind], requestRes[ind].get())
+        response.indices.forEach { ind ->
+            assertEquals(response[ind], requestRes[ind].get())
         }
     }
 
-    @Test
-    fun correctnessTest2() {
-        val count = 1_000
-        val key = "correctnessTest2"
+    private fun correctnessTest2Impl(id: Int, count: Int) {
+        val key = "correctnessTest$id"
 
         val request = ArrayList<String>(count)
-        val responce = ArrayList<String>(count)
+        val response = ArrayList<String>(count)
 
         val requestRes = ArrayList<CompletableFuture<String>>(count)
-        val responceRes = ArrayList<CompletableFuture<String>>(count)
+        val responseRes = ArrayList<CompletableFuture<String>>(count)
 
         var i = 0
         repeat(count) {
@@ -109,16 +139,16 @@ class MessageBrokerTest {
             requestRes.add(messageBroker.sendAndReceive(key, requestString))
 
             val func = { s: String -> s + 10 }
-            responce.add(func(requestString))
-            responceRes.add(messageBroker.listenAndReply(key, func))
+            response.add(func(requestString))
+            responseRes.add(messageBroker.listenAndReply(key, func))
         }
 
-        request.indices.forEach{ ind ->
-            assertEquals(request[ind], responceRes[ind].get())
+        request.indices.forEach { ind ->
+            assertEquals(request[ind], responseRes[ind].get())
         }
 
-        responce.indices.forEach{ ind ->
-            assertEquals(responce[ind], requestRes[ind].get())
+        response.indices.forEach { ind ->
+            assertEquals(response[ind], requestRes[ind].get())
         }
     }
 }

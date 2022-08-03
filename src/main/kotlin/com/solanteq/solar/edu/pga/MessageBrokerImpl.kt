@@ -1,6 +1,9 @@
 package com.solanteq.solar.edu.pga
 
-import com.solanteq.solar.edu.pga.util.*
+import com.solanteq.solar.edu.pga.util.Listen
+import com.solanteq.solar.edu.pga.util.Queues
+import com.solanteq.solar.edu.pga.util.Send
+import com.solanteq.solar.edu.pga.util.Task
 import java.util.concurrent.*
 
 
@@ -45,8 +48,9 @@ class MessageBrokerImpl<K : Any, V : Any> : MessageBroker<K, V> {
 
                 if (mapQueues[entry.key] == queues) {
                     while (true) {
-                        val listen = queues.getListen() ?: break
-                        val send = queues.getSend() ?: break
+                        val forProcess = queues.getForProcess() ?: break
+                        val listen = forProcess.first
+                        val send = forProcess.second
                         match(listen, send)
                     }
                     if (queues.isEmpty()) {
@@ -84,6 +88,7 @@ class MessageBrokerImpl<K : Any, V : Any> : MessageBroker<K, V> {
                             val listen = task.listen ?: throw IllegalStateException("Listen missing")
                             queues.listens.add(listen)
                         }
+
                         Task.TaskType.SEND -> {
                             val send = task.send ?: throw IllegalStateException("Send missing")
                             queues.sends.add(send)
