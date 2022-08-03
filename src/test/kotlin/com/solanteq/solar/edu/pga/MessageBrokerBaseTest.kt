@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.util.concurrent.CancellationException
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 
 abstract class MessageBrokerBaseTest {
     protected lateinit var messageBroker: MessageBroker<String, String>
@@ -22,8 +23,8 @@ abstract class MessageBrokerBaseTest {
         val request = messageBroker.listenAndReply(key) { return@listenAndReply value }
         val response = messageBroker.sendAndReceive(key, value)
 
-        Assertions.assertEquals(value, request.get())
-        Assertions.assertEquals(value, response.get())
+        Assertions.assertEquals(value, request.get(10, TimeUnit.SECONDS))
+        Assertions.assertEquals(value, response.get(10, TimeUnit.SECONDS))
     }
 
     @Test
@@ -37,10 +38,10 @@ abstract class MessageBrokerBaseTest {
         val response = messageBroker.sendAndReceive(key, value)
 
         assertThrows<CancellationException> {
-            (request.get())
+            (request.get(10, TimeUnit.SECONDS))
         }
         messageBroker.listenAndReply(key) { value }
-        Assertions.assertEquals(response.get(), value)
+        Assertions.assertEquals(response.get(10, TimeUnit.SECONDS), value)
     }
 
     @Test
@@ -120,11 +121,11 @@ abstract class MessageBrokerBaseTest {
         }
 
         request.indices.forEach { ind ->
-            Assertions.assertEquals(request[ind], responseRes[ind].get())
+            Assertions.assertEquals(request[ind], responseRes[ind].get(10, TimeUnit.SECONDS))
         }
 
         response.indices.forEach { ind ->
-            Assertions.assertEquals(response[ind], requestRes[ind].get())
+            Assertions.assertEquals(response[ind], requestRes[ind].get(10, TimeUnit.SECONDS))
         }
     }
 
@@ -149,11 +150,11 @@ abstract class MessageBrokerBaseTest {
         }
 
         request.indices.forEach { ind ->
-            Assertions.assertEquals(request[ind], responseRes[ind].get())
+            Assertions.assertEquals(request[ind], responseRes[ind].get(10, TimeUnit.SECONDS))
         }
 
         response.indices.forEach { ind ->
-            Assertions.assertEquals(response[ind], requestRes[ind].get())
+            Assertions.assertEquals(response[ind], requestRes[ind].get(10, TimeUnit.SECONDS))
         }
     }
 
@@ -191,11 +192,11 @@ abstract class MessageBrokerBaseTest {
         }
 
         request.indices.forEach { ind ->
-            Assertions.assertEquals(request[ind], responseRes[ind].get())
+            Assertions.assertEquals(request[ind], responseRes[ind].get(10, TimeUnit.SECONDS))
         }
 
         response.indices.forEach { ind ->
-            Assertions.assertEquals(response[ind], requestRes[ind].get())
+            Assertions.assertEquals(response[ind], requestRes[ind].get(10, TimeUnit.SECONDS))
         }
     }
 }
