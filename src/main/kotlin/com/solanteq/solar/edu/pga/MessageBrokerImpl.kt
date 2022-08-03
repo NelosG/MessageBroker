@@ -1,9 +1,6 @@
 package com.solanteq.solar.edu.pga
 
-import com.solanteq.solar.edu.pga.util.Listen
-import com.solanteq.solar.edu.pga.util.Queues
-import com.solanteq.solar.edu.pga.util.Send
-import com.solanteq.solar.edu.pga.util.Task
+import com.solanteq.solar.edu.pga.util.*
 import java.util.concurrent.*
 
 
@@ -20,12 +17,12 @@ import java.util.concurrent.*
  * В явном виде в потоке вызывающей стороны не должно происходить выполнение логики.
  *
  * @author gpushkarev
- * @since 1.0.0
+ * @since 2.0.0
  */
 class MessageBrokerImpl<K : Any, V : Any> : MessageBroker<K, V> {
 
     private val executors: ExecutorService
-    private val controlThread: Thread
+    private val controlExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private val mapQueues: ConcurrentHashMap<K, Queues<V>> = ConcurrentHashMap()
     private val queue: BlockingQueue<Task<K, V>> = LinkedBlockingQueue()
 
@@ -33,32 +30,35 @@ class MessageBrokerImpl<K : Any, V : Any> : MessageBroker<K, V> {
     constructor() : this(Runtime.getRuntime().availableProcessors())
 
     constructor(count: Int) {
-        controlThread = Thread {
+        controlExecutor.submit {
             controlThreadFun()
         }
-        controlThread.start()
         executors = Executors.newFixedThreadPool(if (count != 1) count - 1 else 1)
     }
 
     private fun processMap() {
         mapQueues.forEach { entry ->
-            val queues = entry.value
             try {
-                queues.lock.lock()
+                val queues = entry.value
+                try {
+                    queues.lock.lock()
 
-                if (mapQueues[entry.key] == queues) {
-                    while (true) {
-                        val forProcess = queues.getForProcess() ?: break
-                        val listen = forProcess.first
-                        val send = forProcess.second
-                        match(listen, send)
+                    if (mapQueues[entry.key] == queues) {
+                        while (!Thread.currentThread().isInterrupted) {
+                            val forProcess = queues.getForProcess() ?: break
+                            val listen = forProcess.first
+                            val send = forProcess.second
+                            match(listen, send)
+                        }
+                        if (queues.isEmpty()) {
+                            mapQueues.remove(entry.key, queues)
+                        }
                     }
-                    if (queues.isEmpty()) {
-                        mapQueues.remove(entry.key, queues)
-                    }
+                } finally {
+                    queues.lock.unlock()
                 }
-            } finally {
-                queues.lock.unlock()
+            } catch (ignored: InterruptedException) {
+                Thread.currentThread().interrupt()
             }
         }
     }

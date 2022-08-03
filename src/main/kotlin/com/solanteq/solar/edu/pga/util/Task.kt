@@ -2,7 +2,7 @@ package com.solanteq.solar.edu.pga.util
 
 /**
  * @author gpushkarev
- * @since 1.0.0
+ * @since 2.0.0
  */
 class Task<K : Any, V : Any> {
 

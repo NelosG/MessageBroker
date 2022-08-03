@@ -5,7 +5,7 @@ import java.util.concurrent.locks.ReentrantLock
 
 /**
  * @author gpushkarev
- * @since 1.0.0
+ * @since 2.0.0
  */
 open class Queues<V : Any> {
 
