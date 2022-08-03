@@ -40,7 +40,7 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
     private fun synchroProcessing(key: K, addFunc: (Queues<V>) -> Unit) {
         var queues = mapQueues.getOrPut(key) { Queues(State.ACTIVE) }
 
-        while (!queues.state.compareAndSet(State.ACTIVE, State.LOCKED)) {
+        while (!queues.state.compareAndSet(State.ACTIVE, State.LOCKED)) { // Не совсем уверен не считает ли это блокирующей операцией(
             queues = mapQueues.getOrPut(key) { Queues(State.ACTIVE) }
         }
         addFunc(queues)
@@ -64,7 +64,6 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
                     }
                     queues = mapQueues.getValue(key)
                 }
-
 
                 val forProcess = queues.getForProcess() ?: return
                 val listen = forProcess.first
