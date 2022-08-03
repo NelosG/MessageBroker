@@ -1,5 +1,6 @@
 package com.solanteq.solar.edu.pga.util
 
+import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.locks.ReentrantLock
 
@@ -9,8 +10,8 @@ import java.util.concurrent.locks.ReentrantLock
  */
 open class Queues<V : Any> {
 
-    val listens: ConcurrentLinkedDeque<Listen<V>> = ConcurrentLinkedDeque()
-    val sends: ConcurrentLinkedDeque<Send<V>> = ConcurrentLinkedDeque()
+    val listens: Deque<Listen<V>> = ArrayDeque()
+    val sends: Deque<Send<V>> = ArrayDeque()
 
     val lock = ReentrantLock()
 
