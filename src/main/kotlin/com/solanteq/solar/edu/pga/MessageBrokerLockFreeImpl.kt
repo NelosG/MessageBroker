@@ -5,7 +5,7 @@ import com.solanteq.solar.edu.pga.util.Queues
 import com.solanteq.solar.edu.pga.util.Send
 import com.solanteq.solar.edu.pga.util.State
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentSkipListMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -17,13 +17,13 @@ import java.util.concurrent.Executors
 class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
 
     private val executors: ExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
-    private val mapQueues: ConcurrentHashMap<K, Queues<V>> = ConcurrentHashMap()
+    private val mapQueues: ConcurrentSkipListMap<K, Queues<V>> = ConcurrentSkipListMap()
 
     override fun listenAndReply(key: K, responder: (V) -> V): CompletableFuture<V> {
         val future = CompletableFuture<V>()
 
         synchroProcessing(key) { queues ->
-            queues.listens.add(Listen(future, responder))
+            queues.listens.enqueue(Listen(future, responder))
         }
         return future
     }
@@ -32,7 +32,7 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
         val future = CompletableFuture<V>()
 
         synchroProcessing(key) { queues ->
-            queues.sends.add(Send(future, value))
+            queues.sends.enqueue(Send(future, value))
         }
         return future
     }

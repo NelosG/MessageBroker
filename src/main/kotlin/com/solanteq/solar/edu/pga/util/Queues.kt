@@ -1,6 +1,7 @@
 package com.solanteq.solar.edu.pga.util
 
-import java.util.concurrent.ConcurrentLinkedDeque
+import com.solanteq.solar.edu.pga.queue.MSQueue
+import com.solanteq.solar.edu.pga.queue.Queue
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -9,8 +10,8 @@ import java.util.concurrent.atomic.AtomicReference
  */
 open class Queues<V : Any> {
 
-    val listens: ConcurrentLinkedDeque<Listen<V>> = ConcurrentLinkedDeque()
-    val sends: ConcurrentLinkedDeque<Send<V>> = ConcurrentLinkedDeque()
+    val listens: Queue<Listen<V>> = MSQueue()
+    val sends: Queue<Send<V>> = MSQueue()
 
     val state: AtomicReference<State>
 
@@ -31,7 +32,7 @@ open class Queues<V : Any> {
         while (!listens.isEmpty()) {
             listen = listens.peek()
             if (listen.future.isCancelled) {
-                listens.pop()
+                listens.dequeue()
                 continue
             }
             break
@@ -44,7 +45,7 @@ open class Queues<V : Any> {
         while (!sends.isEmpty()) {
             send = sends.peek()
             if (send.future.isCancelled) {
-                sends.pop()
+                sends.dequeue()
                 continue
             }
             break
@@ -53,8 +54,8 @@ open class Queues<V : Any> {
             return null
         }
 
-        listens.pop()
-        sends.pop()
+        listens.dequeue()
+        sends.dequeue()
         return Pair(listen, send)
 
     }
