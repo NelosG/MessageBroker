@@ -32,7 +32,7 @@ open class Queues<V : Any> {
         while (!listens.isEmpty()) {
             listen = listens.peek()
             if (listen.future.isCancelled) {
-                listens.dequeue()
+                listens.poll()
                 continue
             }
             break
@@ -45,7 +45,7 @@ open class Queues<V : Any> {
         while (!sends.isEmpty()) {
             send = sends.peek()
             if (send.future.isCancelled) {
-                sends.dequeue()
+                sends.poll()
                 continue
             }
             break
@@ -54,8 +54,8 @@ open class Queues<V : Any> {
             return null
         }
 
-        listens.dequeue()
-        sends.dequeue()
+        listens.poll()
+        sends.poll()
         return Pair(listen, send)
 
     }

@@ -7,9 +7,9 @@ package com.solanteq.solar.edu.pga.queue;
  */
 public interface Queue<V> {
 
-    void enqueue(V x);
+    void add(V x);
 
-    V dequeue();
+    V poll();
 
     V peek();
 

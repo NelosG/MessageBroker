@@ -5,7 +5,6 @@ import com.solanteq.solar.edu.pga.util.Queues
 import com.solanteq.solar.edu.pga.util.Send
 import com.solanteq.solar.edu.pga.util.State
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ConcurrentSkipListMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -14,16 +13,16 @@ import java.util.concurrent.Executors
  * @author gpushkarev
  * @since 3.0.0
  */
-class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
+class MessageBrokerLockFreeImpl<K : Any, V : Any>(threads: Int = Runtime.getRuntime().availableProcessors()) : MessageBroker<K, V> {
 
-    private val executors: ExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
-    private val mapQueues: ConcurrentSkipListMap<K, Queues<V>> = ConcurrentSkipListMap()
+    private val executors: ExecutorService = Executors.newFixedThreadPool(threads)
+    private val mapQueues: MutableMap<K, Queues<V>> = mutableMapOf()
 
     override fun listenAndReply(key: K, responder: (V) -> V): CompletableFuture<V> {
         val future = CompletableFuture<V>()
 
         synchroProcessing(key) { queues ->
-            queues.listens.enqueue(Listen(future, responder))
+            queues.listens.add(Listen(future, responder))
         }
         return future
     }
@@ -32,22 +31,15 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
         val future = CompletableFuture<V>()
 
         synchroProcessing(key) { queues ->
-            queues.sends.enqueue(Send(future, value))
+            queues.sends.add(Send(future, value))
         }
         return future
     }
 
     private fun synchroProcessing(key: K, addFunc: (Queues<V>) -> Unit) {
-        var queues = mapQueues.getOrPut(key) { Queues(State.ACTIVE) }
+        val queues = mapQueues.getOrPut(key) { Queues(State.ACTIVE) }
 
-        while (!queues.state.compareAndSet(State.ACTIVE, State.LOCKED)) { // Не совсем уверен не считает ли это блокирующей операцией(
-            queues = mapQueues.getOrPut(key) { Queues(State.ACTIVE) }
-        }
         addFunc(queues)
-        if (!queues.state.compareAndSet(State.LOCKED, State.ACTIVE)) {
-            throw IllegalStateException("Someone unlock locked value") // Не должно кидаться
-        }
-
         executors.submit {
             processKey(key)
         }
@@ -59,10 +51,9 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
 
             try {
                 while (!queues.state.compareAndSet(State.ACTIVE, State.LOCKED)) {
-                    if (queues.state.compareAndSet(State.REMOVED, State.REMOVED)) {
-                        return
+                    if(queues.state.compareAndSet(State.REMOVED, State.REMOVED)) {
+                        queues = mapQueues.getValue(key)
                     }
-                    queues = mapQueues.getValue(key)
                 }
 
                 val forProcess = queues.getForProcess() ?: return
@@ -70,20 +61,17 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
                 val send = forProcess.second
 
                 match(listen, send)
-
+            } finally {
+                queues.state.compareAndSet(State.LOCKED, State.ACTIVE)
                 if (queues.isEmpty()) {
-                    if (queues.state.compareAndSet(State.LOCKED, State.PREPARED_FOR_REMOVE)) {
+                    if (queues.state.compareAndSet(State.ACTIVE, State.REMOVED)) {
                         if (queues.isEmpty()) {
                             mapQueues.remove(key, queues)
-                            queues.state.compareAndSet(State.PREPARED_FOR_REMOVE, State.REMOVED)
                         } else {
-                            queues.state.compareAndSet(State.PREPARED_FOR_REMOVE, State.LOCKED)
+                            queues.state.set(State.ACTIVE)
                         }
                     }
                 }
-
-            } finally {
-                queues.state.compareAndSet(State.LOCKED, State.ACTIVE)
             }
 
 
@@ -93,7 +81,7 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
     }
 
     private fun match(listen: Listen<V>, send: Send<V>) {
-        listen.future.complete(send.value)
-        send.future.complete(listen.responder(send.value))
+        listen.future.obtrudeValue(send.value)
+        send.future.obtrudeValue(listen.responder(send.value))
     }
 }

@@ -18,7 +18,7 @@ public class MSQueue<V> implements Queue<V> {
     }
 
     @Override
-    public void enqueue(final V x) {
+    public void add(final V x) {
         final Node node = new Node(x);
         Node tail;
         while (true) {
@@ -35,7 +35,7 @@ public class MSQueue<V> implements Queue<V> {
     }
 
     @Override
-    public V dequeue() {
+    public V poll() {
         while (true) {
             final Node head = this.Head.get();
             final Node tail = this.Tail.get();

@@ -159,6 +159,11 @@ abstract class MessageBrokerBaseTest {
     }
 
     private suspend fun correctnessTestWithCancelImpl(id: Int, count: Int) = coroutineScope {
+        correctnessTestWithSenderCancelImpl(id, count, count / 500)
+        correctnessTestWithReceiverCancelImpl(id, count, count / 500)
+    }
+
+    private suspend fun correctnessTestWithSenderCancelImpl(id: Int, count: Int, canacelCount: Int) = coroutineScope {
         val key = "correctnessTest$id"
 
         val request = ArrayList<String>(count)
@@ -172,23 +177,51 @@ abstract class MessageBrokerBaseTest {
             val requestString = i++.toString()
             request.add(requestString)
             requestRes.add(messageBroker.sendAndReceive(key, requestString))
-            repeat(count / 100) {
+            repeat(canacelCount) {
                 val future = messageBroker.sendAndReceive(key, requestString)
-                launch {
-                    future.cancel(true)
-                }
+                future.cancel(true)
             }
         }
         request.forEach {
             val func = { s: String -> s + 10 }
             response.add(func(it))
             responseRes.add(messageBroker.listenAndReply(key, func))
-            repeat(count / 100) {
+        }
+
+        request.indices.forEach { ind ->
+            Assertions.assertEquals(request[ind], responseRes[ind].get(10, TimeUnit.SECONDS))
+        }
+
+        response.indices.forEach { ind ->
+            Assertions.assertEquals(response[ind], requestRes[ind].get(10, TimeUnit.SECONDS))
+        }
+    }
+
+    private suspend fun correctnessTestWithReceiverCancelImpl(id: Int, count: Int, canacelCount: Int) = coroutineScope {
+        val key = "correctnessTest$id"
+
+        val request = ArrayList<String>(count)
+        val response = ArrayList<String>(count)
+
+        val requestRes = ArrayList<CompletableFuture<String>>(count)
+        val responseRes = ArrayList<CompletableFuture<String>>(count)
+
+        var i = 0
+        repeat(count) {
+            val requestString = i++.toString()
+            request.add(requestString)
+        }
+        request.forEach {
+            val func = { s: String -> s + 10 }
+            response.add(func(it))
+            responseRes.add(messageBroker.listenAndReply(key, func))
+            repeat(canacelCount) {
                 val future = messageBroker.listenAndReply(key, func)
-                launch {
-                    future.cancel(true)
-                }
+                future.cancel(true)
             }
+        }
+        request.forEach {
+            requestRes.add(messageBroker.sendAndReceive(key, it))
         }
 
         request.indices.forEach { ind ->
