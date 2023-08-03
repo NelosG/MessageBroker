@@ -11,9 +11,11 @@ import java.util.concurrent.Executors
 
 /**
  * @author gpushkarev
- * @since 3.0.0
+ * @since 4.0.0
  */
-class MessageBrokerLockFreeImpl<K : Any, V : Any>(threads: Int = Runtime.getRuntime().availableProcessors()) : MessageBroker<K, V> {
+class MessageBrokerLockFreeImpl<K : Any, V : Any>(
+    threads: Int = Runtime.getRuntime().availableProcessors()
+) : MessageBroker<K, V> {
 
     private val executors: ExecutorService = Executors.newFixedThreadPool(threads)
     private val mapQueues: MutableMap<K, Queues<V>> = mutableMapOf()
@@ -47,12 +49,12 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any>(threads: Int = Runtime.getRunt
 
     private fun processKey(key: K) {
         try {
-            var queues = mapQueues.getValue(key)
+            val queues = mapQueues[key] ?: return
 
             try {
                 while (!queues.state.compareAndSet(State.ACTIVE, State.LOCKED)) {
-                    if(queues.state.compareAndSet(State.REMOVED, State.REMOVED)) {
-                        queues = mapQueues.getValue(key)
+                    if (queues.state.compareAndSet(State.REMOVED, State.REMOVED)) {
+                        return
                     }
                 }
 
@@ -63,6 +65,7 @@ class MessageBrokerLockFreeImpl<K : Any, V : Any>(threads: Int = Runtime.getRunt
                 match(listen, send)
             } finally {
                 queues.state.compareAndSet(State.LOCKED, State.ACTIVE)
+
                 if (queues.isEmpty()) {
                     if (queues.state.compareAndSet(State.ACTIVE, State.REMOVED)) {
                         if (queues.isEmpty()) {

@@ -12,11 +12,11 @@
     <name>MessageBroker</name>
 
     <properties>
-        <kotlin.version>1.7.10</kotlin.version>
-        <coroutines.version>1.6.4</coroutines.version>
+        <kotlin.version>1.9.0</kotlin.version>
+        <coroutines.version>1.7.3</coroutines.version>
         <jupiter.version>5.8.2</jupiter.version>
         <lincheck.version>2.14.1</lincheck.version>
-        <java.version>11</java.version>
+        <java.version>17</java.version>
         <maven.compiler.version>3.10.1</maven.compiler.version>
         <jmh-core.version>1.35</jmh-core.version>
     </properties>
@@ -31,7 +31,7 @@
         </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
-            <artifactId>kotlin-stdlib</artifactId>
+            <artifactId>kotlin-stdlib-jdk8</artifactId>
             <version>${kotlin.version}</version>
         </dependency>
         <!-- Tests -->

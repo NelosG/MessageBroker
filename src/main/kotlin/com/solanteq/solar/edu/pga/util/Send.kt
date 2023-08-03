@@ -4,9 +4,9 @@ import java.util.concurrent.CompletableFuture
 
 /**
  * @author gpushkarev
- * @since 3.0.0
+ * @since 1.0.0
  */
-data class Send<V : Any>(
-    val future: CompletableFuture<V>,
+data class Send<V>(
+    override val future: CompletableFuture<V>,
     val value: V,
-)
+) : SendListen<V>

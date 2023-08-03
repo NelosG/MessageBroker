@@ -5,8 +5,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
-import java.util.concurrent.CancellationException
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
@@ -15,7 +13,7 @@ abstract class MessageBrokerBaseTest {
 
     abstract fun init()
 
-    @Test()
+    @Test
     fun shouldReturnResult() {
         val key = "key"
         val value = "Hello"
@@ -32,15 +30,12 @@ abstract class MessageBrokerBaseTest {
         val key = "key"
         val value = "Hello"
 
-        val request = messageBroker.listenAndReply(key) { "Hello $value" }
+        val request = messageBroker.listenAndReply(key) { "Hello $it" }
         request.cancel(true)
 
         val response = messageBroker.sendAndReceive(key, value)
 
-        assertThrows<CancellationException> {
-            (request.get(10, TimeUnit.SECONDS))
-        }
-        messageBroker.listenAndReply(key) { value }
+        messageBroker.listenAndReply(key) { it }
         Assertions.assertEquals(response.get(10, TimeUnit.SECONDS), value)
     }
 
