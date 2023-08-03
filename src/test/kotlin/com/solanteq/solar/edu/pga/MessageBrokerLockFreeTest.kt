@@ -11,6 +11,6 @@ class MessageBrokerLockFreeTest : MessageBrokerBaseTest() {
 
     @BeforeEach
     override fun init() {
-        messageBroker = MessageBrokerLockFreeImpl()
+        messageBroker = MessageBrokerLockFreeImpl(Runtime.getRuntime().availableProcessors() / 2 + 1)
     }
 }

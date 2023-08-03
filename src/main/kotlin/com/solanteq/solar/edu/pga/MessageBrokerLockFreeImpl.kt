@@ -11,10 +11,11 @@ import java.util.concurrent.Executors
  * @author gpushkarev
  * @since 4.0.0
  */
-class MessageBrokerLockFreeImpl<K : Any, V : Any> : MessageBroker<K, V> {
+class MessageBrokerLockFreeImpl<K : Any, V : Any>(threads: Int = Runtime.getRuntime().availableProcessors()) :
+    MessageBroker<K, V> {
 
-    private val executors: ExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
-    private val mapQueues: ConcurrentHashMap<K, Queues<V>> = ConcurrentHashMap()
+    private val executors: ExecutorService = Executors.newFixedThreadPool(threads)
+    private val mapQueues: MutableMap<K, Queues<V>> = mutableMapOf()
 
     override fun listenAndReply(key: K, responder: (V) -> V): CompletableFuture<V> {
         val future = CompletableFuture<V>()
